@@ -13,17 +13,17 @@ library("DeliveryMan")
 myFunction <- function(trafficMatrix, carInfo, packageMatrix) {
   # What is our goal?
   if(carInfo$load == 0 && is.null(carInfo$mem$goal)) {
-      carInfo$mem <- nextPickup(trafficMatrix, 
-                                     carInfo, 
-                                     packageMatrix)
+    carInfo$mem <- nextPickup(trafficMatrix, 
+                              carInfo, 
+                              packageMatrix)
     #} else {
     #  carInfo$mem$goal <- list(packageMatrix[carInfo$load, c(3,4)])#,distance)
   }
   
   # How do we get there?
   carInfo <- nextMove(trafficMatrix,
-                               carInfo,
-                               packageMatrix)
+                      carInfo,
+                      packageMatrix)
   return(carInfo)
 }
 
@@ -77,12 +77,13 @@ nextMove <- function(trafficMatrix, carInfo, packageMatrix) {
     curPosx <- curNode$pos$x
     curPosy <- curNode$pos$y
     closed <- append(closed, paste(curPosx,curPosy,sep=","))
-  
+    
     curCost <- opened[[paste(curPosx,curPosy,sep=",")]]$c
     curF <- opened[[paste(curPosx,curPosy,sep=",")]]$f
     opened[[paste(curPosx,curPosy,sep=",")]] <- NULL
     frontier <- frontier[-1]
     
+    #get every neighbor of the current node and compute their cost and add to the frontier
     for(pos in list(c(1,0,'h'),c(-1,0,'h'),c(0,1,'v'),c(0,-1,'v'))){
       newPos <- list(x = carInfo$x + as.numeric(pos[1]), y = carInfo$y + as.numeric(pos[2]))
       
@@ -96,6 +97,7 @@ nextMove <- function(trafficMatrix, carInfo, packageMatrix) {
       
       if(newPos$x == goalNode$x && newPos$y == goalNode$y){
         #found the goal node -> end the while cycle and return the first node of the path
+        #we need to save the path (parents of the nodes) and backtrack
       }
       
       #get cost of newPos based on traffic ->
@@ -123,8 +125,8 @@ nextMove <- function(trafficMatrix, carInfo, packageMatrix) {
         if(opened[paste(newPos$x,newPos$y,sep=",")]$c >= cost){
           tempCost <- opened[paste(newPos$x,newPos$y,sep=",")]
           opened[paste(newPos$x,newPos$y,sep=",")] <- list(f = tempCost$f, c = cost)
-          #TODO update cost in frontier
-          #frontier <- frontier[order(sapply(frontier, `[[`, i=2))]
+          #TODO update cost in frontier and order it
+          #frontier <- frontier[ order( sapply(frontier, "[[", 2) ) ]
         }
         next
       }
