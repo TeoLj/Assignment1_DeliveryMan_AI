@@ -106,13 +106,13 @@ nextMove <- function(trafficMatrix, carInfo, packageMatrix) {
         if(pos[1] == "1")
           cost <- getCost(trafficMatrix$hroads, c(carInfo$x, carInfo$y))
         else
-          cost <- getCost(trafficMatrix$hroads, c(carInfo$x + newPos$x, carInfo$y))
+          cost <- getCost(trafficMatrix$hroads, c(carInfo$x - 1, carInfo$y))
       }
       else{
         if(pos[2] == "1")
           cost <- getCost(trafficMatrix$vroads,c(carInfo$x, carInfo$y))
         else
-          cost <- getCost(trafficMatrix$vroads,c(carInfo$x, carInfo$y + newPos$y))
+          cost <- getCost(trafficMatrix$vroads,c(carInfo$x, carInfo$y - 1))
       }
       
       g <- getG(cost, curCost)
