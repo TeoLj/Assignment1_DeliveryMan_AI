@@ -12,35 +12,59 @@ library("DeliveryMan")
 
 myFunction <- function(trafficMatrix, carInfo, packageMatrix) {
   # What is our goal?
-  if(carInfo$load == 0 && is.null(carInfo$mem$goal)) {
-    carInfo$mem <- nextPickup(trafficMatrix, 
+  carInfo$mem <- nextPickup(trafficMatrix, 
                               carInfo, 
                               packageMatrix)
-    #} else {
-    #  carInfo$mem$goal <- list(packageMatrix[carInfo$load, c(3,4)])#,distance)
-  }
   
   # How do we get there?
   carInfo <- nextMove(trafficMatrix,
-                      carInfo,
-                      packageMatrix)
+                        carInfo,
+                        packageMatrix)
   return(carInfo)
 }
 
 # Find the nearest pickup location for an undelivered package
 nextPickup <- function(trafficMatrix, carInfo, packageMatrix) {
-  frontier <- list(list(pos = list(x = carInfo$x, y = carInfo$y), cost = 0))
-  carInfo$mem$frontier <- frontier
-  carInfo$mem$closed <- list()
-  carInfo$mem$opened <- list()
-  
+  if (is.null(carInfo$mem$goal)){
+    carInfo$mem <- nextPickupPackageStartPosition(trafficMatrix, carInfo, packageMatrix)
+  }
+  else if(carInfo$mem$goal$pos$x == carInfo$x && carInfo$mem$goal$pos$y == carInfo$y){
+    if(carInfo$load == 0){
+      carInfo$mem$goal <- NULL
+    }else{
+      carInfo$mem <- nextPickupPackageEndPosition(carInfo, packageMatrix)
+    }
+    if (is.null(carInfo$mem$goal)){
+      carInfo$mem <- nextPickupPackageStartPosition(trafficMatrix, carInfo, packageMatrix)
+    }
+  }
+  return(carInfo$mem)
+}
+
+nextPickupPackageStartPosition <- function(trafficMatrix, carInfo, packageMatrix){
+  startingNode <- list(pos = list(x = carInfo$x, y = carInfo$y), cost = 0, path = {})
   
   distanceVector = abs(packageMatrix[,1] - carInfo$x) + abs(packageMatrix[,2] - carInfo$y)
   distanceVector[packageMatrix[,5] != 0] = Inf
   
-  goal <- list(as.list(packageMatrix[which.min(distanceVector), c(1,2)]), which.min(distanceVector))
-  carInfo$mem$goal <- goal
-  carInfo$mem$opened[paste(carInfo$x,carInfo$y,sep=",")] <- list(list(f = which.min(distanceVector), c = 0))
+  goalPos <- packageMatrix[which.min(distanceVector), c(1,2)]
+  goalCost <- which.min(distanceVector)
+  goalNode <- list(pos = list(x = goalPos[1], y = goalPos[2]), cost = goalCost)
+  carInfo$mem$goal <- goalNode
+  return(carInfo$mem)
+}
+
+
+nextPickupPackageEndPosition <- function(carInfo, packageMatrix){
+  goalPos <- c(0,0)
+  for (row in 1:nrow(packageMatrix)){
+    if(packageMatrix[row,5] == 1){
+      #package is loaded
+      goalPos <- packageMatrix[row, c(3,4)]
+    }
+  }
+  goalNode <- list(pos = list(x = goalPos[1], y = goalPos[2]), cost = 0)
+  carInfo$mem$goal <- goalNode
   return(carInfo$mem)
 }
 
@@ -49,43 +73,48 @@ getCost <- function(trafficMatrix, pos){
 }
 
 getHeuristic <- function(pos, package){
-  return(abs(package$x - pos[1]) + abs(package$y - as.numeric(pos[2])))
+  return(as.numeric(abs(package$x - pos[1]) + abs(package$y - as.numeric(pos[2]))))
 }
 
 getF <- function(cost, h){
-  return(cost + h)
+  return(as.numeric(cost + h))
 }
 
 getG <- function(cost, parentCost){
-  return(cost+parentCost)
+  return(as.numeric(cost+parentCost))
 }
 
 # Find the move to get to carInfo$mem$goal
 nextMove <- function(trafficMatrix, carInfo, packageMatrix) {
-  frontier <- list(list(pos = list(x = carInfo$x, y = carInfo$y), cost = 0))
+  startingNode <- list(pos = list(x = carInfo$x, y = carInfo$y), cost = 0, path = list(paste(carInfo$x,carInfo$y,sep=",")))
+  frontier <- list(startingNode)
   
   #closed list are the expanded nodes
   closed <- list()
   #opened list are nodes in frontier
   opened <- list()
+  opened[paste(carInfo$x,carInfo$y,sep=",")] <- list(list(f = 0, c = 0))
   
   goalNode <- carInfo$mem$goal
   
   while(length(frontier) > 0){
     #get current node where the car is and delete it from the frontier and from opened nodes
-    curNode <- frontier[[1]]
-    curPosx <- curNode$pos$x
-    curPosy <- curNode$pos$y
-    closed <- append(closed, paste(curPosx,curPosy,sep=","))
+    scores=sapply(frontier,function(item)item$cost)
+    best_index=which.min(scores)
     
-    curCost <- opened[[paste(curPosx,curPosy,sep=",")]]$c
-    curF <- opened[[paste(curPosx,curPosy,sep=",")]]$f
-    opened[[paste(curPosx,curPosy,sep=",")]] <- NULL
-    frontier <- frontier[-1]
+    curNode <- frontier[[best_index]]
+    frontier <- frontier[-best_index]
+    
+    curPos <- curNode$pos
+    closed <- append(closed, paste(curPos$x,curPos$y,sep=","))
+    
+    curCost <- opened[[paste(curPos$x,curPos$y,sep=",")]]$c
+    curF <- opened[[paste(curPos$x,curPos$y,sep=",")]]$f
+    opened[[paste(curPos$x,curPos$y,sep=",")]] <- NULL
     
     #get every neighbor of the current node and compute their cost and add to the frontier
     for(pos in list(c(1,0,'h'),c(-1,0,'h'),c(0,1,'v'),c(0,-1,'v'))){
-      newPos <- list(x = carInfo$x + as.numeric(pos[1]), y = carInfo$y + as.numeric(pos[2]))
+      newPos <- list(x = curPos$x + as.numeric(pos[1]), y = curPos$y + as.numeric(pos[2]))
       
       if(!isPosInGrid(newPos)){
         next
@@ -95,24 +124,19 @@ nextMove <- function(trafficMatrix, carInfo, packageMatrix) {
         next
       }
       
-      if(newPos$x == goalNode$x && newPos$y == goalNode$y){
-        #found the goal node -> end the while cycle and return the first node of the path
-        #we need to save the path (parents of the nodes) and backtrack
-      }
-      
       #get cost of newPos based on traffic ->
       #TODO traffic matrices should be checked if the value is retrieved correctly
       if(pos[3] == 'h'){
         if(pos[1] == "1")
-          cost <- getCost(trafficMatrix$hroads, c(carInfo$x, carInfo$y))
+          cost <- getCost(trafficMatrix$hroads, c(curPos$x, curPos$y))
         else
-          cost <- getCost(trafficMatrix$hroads, c(carInfo$x - 1, carInfo$y))
+          cost <- getCost(trafficMatrix$hroads, c(curPos$x - 1, curPos$y))
       }
       else{
         if(pos[2] == "1")
-          cost <- getCost(trafficMatrix$vroads,c(carInfo$x, carInfo$y))
+          cost <- getCost(trafficMatrix$vroads,c(curPos$x, curPos$y))
         else
-          cost <- getCost(trafficMatrix$vroads,c(carInfo$x, carInfo$y - 1))
+          cost <- getCost(trafficMatrix$vroads,c(curPos$x, curPos$y - 1))
       }
       
       g <- getG(cost, curCost)
@@ -131,14 +155,30 @@ nextMove <- function(trafficMatrix, carInfo, packageMatrix) {
         next
       }
       opened[paste(newPos$x,newPos$y,sep=",")] <- list(list(f = f, c = cost))
-      frontier <- append(frontier, list(list(pos = list(x = newPos$x, y = newPos$y), cost = f)))
+      newPath <- append(curNode$path, paste(newPos$x,newPos$y,sep=","))
+      newNode <- list(pos = list(x = newPos$x, y = newPos$y), cost = f, path = newPath)
+      frontier <- append(frontier, list(newNode))
+      
+      if(newPos$x == goalNode$pos$x && newPos$y == goalNode$pos$y){
+        #found the goal node -> end the while cycle and return the first node of the path
+        #needs to be at the end of the cycle to get the whole path
+        posOfFirstNode <- getPosFromString(newPath[[2]])
+        carInfo$nextMove <- getNextMove(posOfFirstNode$x, posOfFirstNode$y, carInfo)
+        return(carInfo)
+      }
     }
-    frontier <- frontier[ order( sapply(frontier, "[[", 2) ) ]
   }
   
   #TODO return the first node
-  carInfo$nextMove <- getNextMove(curPosx, curPosy, carInfo)
+  carInfo$nextMove <- getNextMove(carInfo$x, carInfo$y, carInfo)
   return(carInfo)
+}
+
+getPosFromString <- function(text){
+  splittedText <- unlist(strsplit(text, split=","))
+  x <- as.numeric(splittedText[1])
+  y <- as.numeric(splittedText[2])
+  return(list(x = x,y = y))
 }
 
 getNextMove <- function(curPosx, curPosy, carInfo){
