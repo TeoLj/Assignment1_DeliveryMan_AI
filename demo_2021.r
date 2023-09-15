@@ -25,13 +25,17 @@ myFunction <- function(trafficMatrix, carInfo, packageMatrix) {
 
 # Find the nearest pickup location for an undelivered package
 nextPickup <- function(trafficMatrix, carInfo, packageMatrix) {
+  #doesn't carry a package
   if (is.null(carInfo$mem$goal)){
     carInfo$mem <- nextPickupPackageStartPosition(trafficMatrix, carInfo, packageMatrix)
   }
+  #the delivery man is at it's goal position
   else if(carInfo$mem$goal$pos$x == carInfo$x && carInfo$mem$goal$pos$y == carInfo$y){
     if(carInfo$load == 0){
+      #it just delivered a package, find a new one
       carInfo$mem$goal <- NULL
     }else{
+      #it just picked up a package, get it to it's delivery location
       carInfo$mem <- nextPickupPackageEndPosition(carInfo, packageMatrix)
     }
     if (is.null(carInfo$mem$goal)){
@@ -161,7 +165,8 @@ nextMove <- function(trafficMatrix, carInfo, packageMatrix) {
       
       if(newPos$x == goalNode$pos$x && newPos$y == goalNode$pos$y){
         #found the goal node -> end the while cycle and return the first node of the path
-        #needs to be at the end of the cycle to get the whole path
+        #needs to be at the end of the cycle to get the whole path 
+        #TODO: if the execution time won't be good enough we can move it up and just add the node to the path
         posOfFirstNode <- getPosFromString(newPath[[2]])
         carInfo$nextMove <- getNextMove(posOfFirstNode$x, posOfFirstNode$y, carInfo)
         return(carInfo)
