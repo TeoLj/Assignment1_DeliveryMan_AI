@@ -1,8 +1,7 @@
 # File:         demo.r 
-# Description:  Naive demo-solution given at classroom session
-#               for Project 1, Artificial Intelligence 2019, UU
+# Description:  Solution for Delivery Man using A* search
 # Author:       Fredrik Nilsson
-# Modified by:  Marcello Vendruscolo (2021)
+# Modified by:  Group 38
 
 # Install the package
 # install.packages("DeliveryMan_1.1.0.tar.gz", repos = NULL, type="source")
@@ -63,6 +62,7 @@ nextPickupPackageEndPosition <- function(carInfo, packageMatrix){
     if(packageMatrix[row,5] == 1){
       #package is loaded
       goalPos <- packageMatrix[row, c(3,4)]
+      break
     }
   }
   goalNode <- list(pos = list(x = goalPos[1], y = goalPos[2]), cost = 0)
@@ -135,28 +135,14 @@ nextMove <- function(trafficMatrix, carInfo, packageMatrix) {
       
       if(newPos$x == goalNode$pos$x && newPos$y == goalNode$pos$y){
         #found the goal node -> end the while cycle and return the first node of the path
-        #needs to be at the end of the cycle to get the whole path 
-        
         newPath <- append(curNode$path, paste(newPos$x,newPos$y,sep=","))
         posOfFirstNode <- getPosFromString(newPath[[2]])
         carInfo$nextMove <- getNextMove(posOfFirstNode$x, posOfFirstNode$y, carInfo)
         return(carInfo)
       }
       
-      #get cost of newPos based on traffic ->
-      #TODO traffic matrices should be checked if the value is retrieved correctly
-      if(pos[3] == 'h'){
-        if(pos[1] == "1")
-          cost <- getCost(trafficMatrix$hroads, c(curPos$x, curPos$y))
-        else
-          cost <- getCost(trafficMatrix$hroads, c(curPos$x - 1, curPos$y))
-      }
-      else{
-        if(pos[2] == "1")
-          cost <- getCost(trafficMatrix$vroads,c(curPos$x, curPos$y))
-        else
-          cost <- getCost(trafficMatrix$vroads,c(curPos$x, curPos$y - 1))
-      }
+      #get cost of newPos based on traffic
+      cost <- getCostBasedOnPosition(pos, trafficMatrix, curPos)
       
       g <- getG(cost, curG)
       h <- getHeuristic(unlist(goalNode[1]), newPos)
@@ -185,9 +171,24 @@ nextMove <- function(trafficMatrix, carInfo, packageMatrix) {
     }
   }
   
-  #TODO return the first node
   carInfo$nextMove <- getNextMove(carInfo$x, carInfo$y, carInfo)
   return(carInfo)
+}
+
+getCostBasedOnPosition <- function(pos, trafficMatrix, curPos) {
+  if(pos[3] == 'h'){
+    if(pos[1] == "1")
+      cost <- getCost(trafficMatrix$hroads, c(curPos$x, curPos$y))
+    else
+      cost <- getCost(trafficMatrix$hroads, c(curPos$x - 1, curPos$y))
+  }
+  else{
+    if(pos[2] == "1")
+      cost <- getCost(trafficMatrix$vroads,c(curPos$x, curPos$y))
+    else
+      cost <- getCost(trafficMatrix$vroads,c(curPos$x, curPos$y - 1))
+  }
+  return(cost)
 }
 
 getPosFromString <- function(text){
